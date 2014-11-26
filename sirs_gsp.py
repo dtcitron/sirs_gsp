@@ -26,6 +26,7 @@
 #     this is not yet optimized.
 #  2. Is there a simple way to use map() to calculate groups of 
 #     trajectories in parallel, rather than in series?
+#  3. Plotting the phase diagrams?
 
 import numpy as np
 import scipy
@@ -33,6 +34,7 @@ import random
 import cPickle as pickle
 from collections import defaultdict
 import scipy.optimize as opt
+import matplotlib.pyplot as plt
 
 # First calculate a group of trajectories:
 #
@@ -364,139 +366,207 @@ def gsp_trajectory_grid(t_traj, X_traj, Y_traj = None, dt = .1):
 # Functions for extracting statistics from groups trajectories
 ###----------------------------------------------------------------------------
     
-def avg_profile(t_grid, S_grid, I_grid = None):
+def grid_avg(t_grid, S_grid, I_grid = None):
     """
-    Calculate the average trajectory of a group of trajectories
+    Calculate the average and standard deviation of a group of 
+    trajectories.  The average is computed across all trajectories,
+    not over time. Need to coarse-grain in time using 
+    gsp_trajectory_grid() first.
     Inputs:
-            t_grid - coarse-grained time steps
-            S_grid - grid of group of trajectories
-            I_grid - grid of group of trajectories, not a necessary input
+        t_grid : Coarse-grained time steps
+        S_grid : Number of Susceptibles for a group of trajectories,
+                 coarse-grained in time
+        I_grid : Number of Infecteds for a group of trajectories,
+                 coarse-grained in time
     Outputs:
-            t_avg - coarse-grained time steps
-            S_avg - mean value of trajectories of number of susceptibles
-            S_std - standard deviation of noise about trajectories of number of susceptibles
-            I_avg, I_std - mean and std of trajectories of number of infecteds
+        t_avg  : coarse-grained time steps
+        S_avg  : Mean value of number of Susceptibles, averaged
+                 across all trajectories 
+        S_std  : Standard deviation of the number of Susceptibles,
+                 averaged across all trajectories
+        I_avg  : Mean value of number of Iusceptibles, averaged
+                 across all trajectories. This is computed only
+                 if I_grid != None.
+        I_std  : Standard deviation of the number of Infecteds,
+                 averaged across all trajectories. This is computed 
+                 only if I_grid != None.
     """
-
-    # Calculate the average profile
-    N_runs = len(S_grid)
+    nruns = len(S_grid)
     max_grid = np.max([len(i) for i in t_grid])
-    dt = t_grid[0][1] - t_grid[0][0] # extract dt
-    
+    # Extract time step size dt from t_grid
+    dt = t_grid[0][1] - t_grid[0][0]
+    # Initialize arrays
     t_avg = np.array(max_grid*[0.])	
     S_avg = np.array(max_grid*[0.])
     S_std = np.array(max_grid*[0.])
     if I_grid: 
         I_avg = np.array(max_grid*[0.])
         I_std = np.array(max_grid*[0.])
-        
+    # Compute statistics across all trajectories
     for j in range(max_grid):
         if j == 0:
             t_avg[j] = 0
         else:
             t_avg[j] = t_avg[j-1] + dt
-        S_avg[j] = np.mean([S_grid[i][j] for i in range(N_runs) if j < len(S_grid[i])])
-        S_std[j] = np.std([S_grid[i][j] for i in range(N_runs) if j < len(S_grid[i])])
-
+        # Ignore all data points where the trajectories have died out
+        S_avg[j] = np.mean([S_grid[i][j] for i in range(nruns) \
+                            if j < len(S_grid[i])])
+        S_std[j] = np.std([S_grid[i][j] for i in range(nruns) \
+                            if j < len(S_grid[i])])
         if I_grid: 
-            I_avg[j] = np.mean([I_grid[i][j] for i in range(N_runs) if j < len(I_grid[i])])
-            I_std[j] = np.std([I_grid[i][j] for i in range(N_runs) if j < len(I_grid[i])])
-    
+            I_avg[j] = np.mean([I_grid[i][j] for i in range(nruns) \
+                                if j < len(I_grid[i])])
+            I_std[j] = np.std([I_grid[i][j] for i in range(nruns) \
+                                if j < len(I_grid[i])])
     if I_grid:
-        return (t_avg,S_avg,I_avg, S_std, I_std)	
+        return (t_avg, S_avg, S_std, I_avg, I_std)	
     else:
-        return (t_avg,S_avg, S_std)
+        return (t_avg, S_avg, S_std)
 
-
-#------------------------------------
-
-
-def med_profile(t_grid, S_grid, I_grid = None):
+def grid_med(t_grid, S_grid, I_grid = None):
     """
-    Calculate the median trajectory of a group of trajectories
+    Calculate the median of a group of trajectories, computed across 
+    all trajectories, not over time. Need to coarse-grain in time 
+    using gsp_trajectory_grid() first.
     Inputs:
-            t_grid - coarse-grained time steps
-            S_grid - grid of group of trajectories
-            I_grid - grid of group of trajectories, not a necessary input
+        t_grid : Coarse-grained time steps
+        S_grid : Number of Susceptibles for a group of trajectories,
+                 coarse-grained in time
+        I_grid : Number of Infecteds for a group of trajectories,
+                 coarse-grained in time
     Outputs:
-            t_med - coarse-grained time steps
-            S_med - mean value of trajectories of number of susceptibles
-            I_med - mean and std of trajectories of number of infecteds
+        t_avg  : coarse-grained time steps
+        S_med  : Median value of number of Susceptibles, computed
+                 across all trajectories 
+        I_med  : Median value of number of Iusceptibles, computed
+                 across all trajectories. This is computed only
+                 if I_grid != None.
     """
-
-    # Calculate the average profile
-    N_runs = len(S_grid)
+    nruns = len(S_grid)
     max_grid = np.max([len(i) for i in t_grid])
-    dt = t_grid[0][1] - t_grid[0][0] # extract dt
-    
+    # Extract time step size dt from t_grid
+    dt = t_grid[0][1] - t_grid[0][0]
+    # Initialize arrays
     t_avg = np.array(max_grid*[0.])	
     S_med = np.array(max_grid*[0.])
     if I_grid: 
         I_med = np.array(max_grid*[0.])
-        
     for j in range(max_grid):
         if j == 0:
             t_avg[j] = 0
         else:
             t_avg[j] = t_avg[j-1] + dt
-        S_med[j] = np.median([S_grid[i][j] for i in range(N_runs) if j < len(S_grid[i])])
-
+        # Ignore all data points where the trajectories have died out
+        S_med[j] = np.median([S_grid[i][j] for i in range(nruns) \
+                            if j < len(S_grid[i])])
         if I_grid: 
-            I_med[j] = np.median([I_grid[i][j] for i in range(N_runs) if j < len(I_grid[i])])
-    
+            I_med[j] = np.median([I_grid[i][j] for i in range(nruns) \
+                            if j < len(I_grid[i])])
     if I_grid:
         return (t_avg,S_med, I_med)	
     else:
         return (t_avg,S_med)
         
-
-
-#----------------------------------
+###----------------------------------------------------------------------------
 #  Functions for phase diagram for a group of trajectories
-#----------------------------------
-def SIRS_gsp_endemic(N, R0s, rhos, g, maxtime, Nruns, se, filename = 'SIRS_gsp_endemic_N.dat'):
-    absorb_data = defaultdict(float)
-    for R0 in R0s:
-        for rho in rhos:
-            absorb_data[rho, R0] = 0
-            for i in range(Nruns):
-                t, X, Y = SIRS_GSP(N, R0, g, rho, N//10, maxtime, se)
-                se += 1
-                # check to see if the disease has died out...
-                if Y[t[-1]] > 1:
-                    absorb_data[rho, R0] += 1./Nruns
-    f = open(filename, 'w')
-    pickle.dump(absorb_data, f)
-    f.close()
-        
+###----------------------------------------------------------------------------
 
-
-def SIRS_gsp_diagram(N, R0s, rhos, g, maxtime, dt, Nruns, filename = 'SIRS_gsp_diagram_N.dat'):
+def sirs_diagram(n, r0s, alphas, g, maxtime, dt, nruns, 
+                 fname = 'SIRS_gsp_diagram_N.dat'):
+    """
+    Produce a group of SIRS trajectories for each given parameter 
+    combination.  Thus, this produces a phase diagram that can
+    be used to measure the persistence of the endemic phase,
+    statistics of trajectories, and more.
+    Input:
+        n      : Population size
+        r0s    : Array/list of R0 values in parameter space
+        alphas : Array/list of alpha values in parameter space
+        g      : Recovery rate (gamma)
+        maxtime: Maximum total length of real time for which the 
+                 simulation runs
+        dt     : Time step
+        seed   : Initial seed for random.random()
+        nruns  : Number of trajectories to simulate in series
+                 for each set of parameters
+        fname  : If filename != None, write the output out to the
+                 named location.  Else return the output.
+    Output:
+        data   : This is a dictionary containing the full coarse-
+                 grained trajectory data for a group of trajectories
+                 calculated for each parameter combination.
+                 {[alpha, r0] : coarse-grained trajectory group}
+                 If fname != None, write out to file at given location;
+                 otherwise, return data.
+    """
     data = {}
-    for R0 in R0s:
-        for rho in rhos:
-            t, x, y = SIRS_group(N, R0, g, rho, N//10, maxtime, 0 , Nruns)
-            data[rho, R0] = GSP_grid(N, t, x, y, dt)
-    f = open(filename, 'w')
-    pickle.dump(data, f)
-    f.close()
+    for r0 in r0s:
+        for alpha in alphas:
+            t, x, y = sirs_group(n, r0, g, alpha, n//10, maxtime, 0 , nruns)
+            data[alpha, r0] = gsp_trajectory_grid(t, x, y, dt)
+    if fname != None:
+        f = open(filename, 'w')
+        pickle.dump(data, f)
+        f.close()
+    else:
+        return data
 
-
- 
-def absorb_diagram(data, pt = False):
-    R0s, rhos = ExtractParameters(data)
+def absorb_diagram(data):
+    """
+    Create a phase diagram of the fraction of extinct (absorbed)
+    trajectories.
+    Inputs:
+        data : Output from sirs_diagram() above
+    Outputs:
+        absorb_dict : 
+               Fraction of absorbed trajectories at each
+               parameter combination: {[alpha, R0] : fraction absorbed}
+    """
+    r0s, alphas = data_params(data)
     absorb_dict = {}
-    for R0 in R0s:
-        for rho in rhos:
+    for r0 in r0s:
+        for alpha in alphas:
             absorb = 0
-            ys = data[R0, rho][-1]
+            ys = data[r0, alpha][-1]
             for y in ys:
                 if y[-1] == 0: absorb += 1
-            absorb_dict[R0, rho] = 1.*absorb/len(ys)
-    if not pt: return absorb_dict
-    else:
-        #now we plot
-        pass
+            absorb_dict[r0, alpha] = 1.*absorb/len(ys)
+    return absorb_dict
+
+def colormap(data, alphas, R0s,
+             p = True, logx = True, ret = False):
+    """
+    Use pcolormesh from matplotlib to create a visualization of the 
+    ISIRS hase diagram in the form of a heat map.
+    Input:  
+        data  : Dictionary of the form {(alpha, R0}:value}, where
+                the value represents <I*>, <S*>, etc.  This dictionary
+                is produced by avg_idata(), fluct(), or frac_fluct()
+        alphas: Phase diagram parameters on x-axis; rho/gamma
+        R0s   : Phase diagram parameters on y-axis; beta<k>/gamma
+                These can be obtained with data_params()
+        p     : Create a plot of the data if p==True
+        logx  : Plot with a logarithmic x-axis (alphas logarithmic)
+        ret   : If ret==True, return the values used to create the
+                heat map, so that they may be manipulated in the 
+                interpreter or elsewhere; defaults to False
+    Output:
+        Creates a matplotlib heatmap if p==True
+        (X, Y, C): These are three arrays that pcolormesh() takes as
+                arguments.  These are returned only if ret==True
+    """
+    X, Y = np.meshgrid(alphas, R0s)
+    C = np.array([[data[rho_, R0] for rho_ in alphas] for R0 in R0s])
+    if p:
+        plt.figure()
+        plt.pcolormesh(X, Y, C)
+        plt.xlabel('rho/gamma')
+        if logx: 
+            plt.semilogx()
+        plt.ylabel('R_0')
+        plt.colorbar()
+        plt.show()
+    if ret: return X, Y, C
 
 def data_params(idata):
     """
@@ -514,26 +584,45 @@ def data_params(idata):
     R0s = np.array(sorted(list(set(np.array(idata.keys()).transpose()[1]))))
     return alphas, R0s
     
-    
-#----------------------------------
-#  Functions for plotting the analytical results
-#----------------------------------
-
-def boundary(R0, g, rho, n, k = 1):
-    return (n * (1 - g/R0) * rho/(g + rho) - g/(R0 - g)) - \
-            k*np.sqrt(n*(g*((R0 - g)*g*g + (R0*R0 + R0*g - g*g)*rho + 
-            2*R0*rho*rho + rho*rho*rho))/(R0*(R0+ rho)*(g + rho)*(g + rho)) +
-            (g*g*(g**4 + R0**3*rho + 2*g**3*rho + g*g*rho*rho + rho**4 + 
-            R0*R0*(g*g + 2*rho*rho) - R0*(2*g**3 + 3*g*g*rho + 2*g*rho*rho - 
-            2*rho**3)))/((R0 - g)*(R0 - g)*rho*rho*(R0 + rho)*(R0 + rho)))
-            
-def mu(R0, g, rho, n):
-    return n * (1 - g/R0) * rho/(g + rho) - g/(R0 - g)
-    
-def vari(R0, g, rho, n):
-    return n*(g*((R0 - g)*g*g + (R0*R0 + R0*g - g*g)*rho + \
-            2*R0*rho*rho + rho*rho*rho))/(R0*(R0+ rho)*(g + rho)*(g + rho)) + \
-            (g*g*(g**4 + R0**3*rho + 2*g**3*rho + g*g*rho*rho + rho**4 + 
-            R0*R0*(g*g + 2*rho*rho) - R0*(2*g**3 + 3*g*g*rho + 2*g*rho*rho - 
-            2*rho**3)))/((R0 - g)*(R0 - g)*rho*rho*(R0 + rho)*(R0 + rho))
-    
+def sirs_diagram_endemic(n, r0s, alphas, g, maxtime, seed, nruns,
+                         fname = 'SIRS_gsp_endemic_N.dat'):
+    """
+    Produce the phase diagram of where in model parameter space the
+    endemic disease is sustained up to maxtime.  For each combination
+    of parameters, we count the fraction of SIRS trajectories that 
+    survive up to maxtime.  Initially infect 10% of the population.
+    Inputs:
+        n      : Population size
+        r0s    : Array/list of R0 values in parameter space
+        alphas : Array/list of alpha values in parameter space
+        g      : Recovery rate (gamma)
+        maxtime: Maximum total length of real time for which the 
+                 simulation runs
+        seed   : Initial seed for random.random()
+        nruns  : Number of trajectories to simulate in series
+                 for each set of parameters
+        fname  : If filename != None, write the output out to the
+                 named location.  Else return the output.
+    Output:
+        absorb_data : This is a dictionary containing the fraction of
+                 trajectories that survive for each combination of 
+                 parameters. {[alpha, R0] : fraction surviving}.
+                 absorb_data is either written to a file or if 
+                 fname == None we return absorb_data.
+    """
+    absorb_data = defaultdict(float)
+    for r0 in r0s:
+        for alpha in alphas:
+            absorb_data[alpha, r0] = 0
+            for i in range(nruns):
+                t, X, Y = sirs_gsp(n, r0, g, alpha, n//10, maxtime, seed)
+                seed += 1
+                # check to see if the disease has died out...
+                if Y[t[-1]] > 0:
+                    absorb_data[alpha, r0] += 1./nruns
+    if fname != None:
+        f = open(filename, 'w')
+        pickle.dump(absorb_data, f)
+        f.close()
+    else:
+        return absorb_data

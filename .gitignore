@@ -1,2 +1,5 @@
 # ignore .pyc files
 *.pyc
+
+sirs_gsp_graveyard.py
+.ipynb_checkpoints/
