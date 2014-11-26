@@ -15,11 +15,6 @@
 #  Thanks to Sarabjeet Singh, who provided the inspiration for this
 #  code with Gillespie_messy.py
 #
-#  For large networks (>500 nodes), we use Scipy's sparse matrix
-#  methods to perform the simulations.  This has been found to
-#  greatly improve the speed of the simulations.  This works best
-#  for graphs with a low density of edges.
-#
 #  Updates for later:
 #  1. I have also attempted to extend the Gillespie algorithm for SIR-type
 #     simulations on complex networks (given a connectivity graph), but
