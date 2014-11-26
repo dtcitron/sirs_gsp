@@ -24,6 +24,8 @@
 #  1. I have also attempted to extend the Gillespie algorithm for SIR-type
 #     simulations on complex networks (given a connectivity graph), but
 #     this is not yet optimized.
+#  2. Is there a simple way to use map() to calculate groups of 
+#     trajectories in parallel, rather than in series?
 
 import numpy as np
 import scipy
@@ -152,7 +154,7 @@ def sirs_gsp(n, r0, g = 1, rho = 1, ii = 1, tmax = 10, seed  = 0, debug = False)
         seed : Seed for random.random
         debug: Return messages if set to True; defaults to False
     Outputs:
-        t    : List of times at which observations are made
+        t   : List of times at which observations are made
         X   : Dict of number of remaining Susceptibles, 
               indexed by times in t; {time from t:S}
         Y   : Dict of number of Infecteds, indexed by times t;
@@ -187,149 +189,181 @@ def sirs_gsp(n, r0, g = 1, rho = 1, ii = 1, tmax = 10, seed  = 0, debug = False)
             Y[t[-1]] = Y[t[-2]]
     return (t,X,Y)
 
-#----------------------------------
+###----------------------------------------------------------------------------
 # Functions for calculating groups of trajectories
-#----------------------------------
+###----------------------------------------------------------------------------
 
-def SIRS_group(N, R0, g = 1, rho = 1, ii = 1, tmax = 10, seed  = 0, N_runs = 10):
+def sirs_group(n, r0, g = 1, rho = 1, ii = 1, tmax = 10, seed  = 0, nruns = 10):
     """
-    Calculate a group of trajectories, each trajectory is calculated using SIS_GSP
+    Generate a group of trajectories using the Susceptible-Infected-
+    Recovered-Susceptible (SIRS) model of disease dynamics.  Each 
+    trajectory is calculated in series using sirs_gsp().
     Inputs:
-            N - size of population
-            R0 - used to calculate rate of transmission beta = g*R0/N
-            g - parameter that determines rate of recovery (defaults to 1)
-            rho - parameter that determines rate of waning immunity = g*rho
-            ii - initial infecteds, defaults to 1, must be an integer            
-            tmax - max total length of time to run the dynamics for
-            seed - RNG seed for random.random
-            N_runs - number of trajectories to calculate
+        n    : Population size
+        r0   : Epidemiological parameter; this is used to calculate
+               the per-contact rate of transmission beta = g*r0/n
+        g    : Recovery rate (gamma)
+        rho  : Waning immunity rate (rho)
+        ii   : Initial number of infected nodes
+        tmax : Maximum total length of real time for which the 
+               simulation runs
+        seed : Seed for random.random()
+        nruns: Number of trajectories to simulate in series
     Outputs:
-            t - list of times
-            X - List of many trajectories for numbers of susceptibles
-            Y - List of many trajectories for numbers of infecteds
+        t   : Times at which observations are made; a list of lists,
+              in which t[i] are the times at which the observations are
+              made in the ith trajectory
+        X   : Numbers of Susceptibles vs. time; a list of dictionaries 
+              {time from t[i]:S}, where X[i] is the ith trajectory and
+              is indexed by the times in t[i]
+        Y   : Numbers of Infecteds vs. time; a list of dictionaries 
+              {time from t[i]:I}, where Y[i] is the ith trajectory and
+              is indexed by the times in t[i]
     """
-    t_traj = [] # lists of trajectories
-    X_traj = [] # numbers of susceptibles
-    Y_traj = [] # numbers of infecteds
-
-    for i in range(N_runs):
-        (t_sim,X_sim,Y_sim) = SIRS_GSP(N,R0,g,rho,ii,tmax,seed) # calculate the trajectory
+    # Lists of observation times
+    t_traj = []
+    # Lists of dictionaries, numbers of Susceptibles
+    X_traj = []
+    # Lists of dictionaries, numbers of Infecteds
+    Y_traj = []
+    # Simulate trajectories in series
+    for i in range(nruns):
+        (t_sim,X_sim,Y_sim) = sirs_gsp(n, r0, g, rho, ii, tmax, seed)
+        # Different random seed for each trajectory
         seed += 1
         t_traj.append(t_sim)
         X_traj.append(X_sim)
         Y_traj.append(Y_sim)
-    
     return t_traj, X_traj, Y_traj
 
-
-#------------------------------------
-
-
-def SI_group(N, R0, tmax = 10, seed  = 0, N_runs = 10):
+def si_group(n, r0, ii = 1, tmax = 10, seed  = 0, nruns = 10):
     """
-    Calculate a group of trajectories, each trajectory is calculated using SI_GSP
+    Generate a group of trajectories using the Susceptible-Infected
+    model of disease dynamics.  Each trajectory is calculated in 
+    series using sis_gsp().
     Inputs:
-            N - size of population
-            R0 - used to calculate rate of transmission beta = g*R0/N
-            tmax - max total length of time to run the dynamics for
-            seed - RNG seed for random.random
-            N_runs - number of trajectories to calculate
+        n    : Population size
+        r0   : Epidemiological parameter; this is used to calculate
+               the per-contact rate of transmission beta = g*r0/n
+        g    : Recovery rate (gamma)
+        ii   : Initial number of infected nodes
+        tmax : Maximum total length of real time for which the 
+               simulation runs
+        seed : Seed for random.random()
+        nruns: Number of trajectories to simulate in series
     Outputs:
-            t - list of times
-            X - List of many trajectories
+        t   : Times at which observations are made; a list of lists,
+              in which t[i] are the times at which the observations are
+              made in the ith trajectory
+        X   : Numbers of Susceptibles vs. time; a list of dictionaries 
+              {time from t[i]:S}, where X[i] is the ith trajectory and
+              is indexed by the times in t[i]
     """
-    t_traj = [] # lists of trajectories
+    # Lists of observation times
+    t_traj = []
+    # Lists of dictionaries, numbers of Susceptibles
     X_traj = []
-
-    for i in range(N_runs):
-        (t_sim,X_sim,Y_sim) = SI_GSP(N,R0,tmax,seed) # calculate the trajectory
+    # Simulate trajectories in series
+    for i in range(nruns):
+        (t_sim,X_sim,Y_sim) = si_gsp(n, r0, ii, tmax, seed)
+        # Different random seed for each trajectory
         seed += 1
         t_traj.append(t_sim)
         X_traj.append(X_sim)
-    
     return t_traj, X_traj
     
-#------------------------------------
-    
-    
-def SIS_group(N, R0, g = 1, ii = 1, tmax = 10, seed  = 0, N_runs = 10):
+def sis_group(n, r0, g = 1, ii = 1, tmax = 10, seed  = 0, nruns = 10):
     """
-    Calculate a group of trajectories, each trajectory is calculated using SIS_GSP
+    Generate a group of trajectories using the Susceptible-Infected-
+    Susceptible model of disease dynamics.  Each trajectory is 
+    calculated in series using sis_gsp().
     Inputs:
-            N - size of population
-            R0 - used to calculate rate of transmission beta = g*R0/N
-            g - parameter that determines rate of recovery (defaults to 1)
-            ii - initial infecteds, defaults to 1, must be an integer            
-            tmax - max total length of time to run the dynamics for
-            seed - RNG seed for random.random
-            N_runs - number of trajectories to calculate
+        n    : Population size
+        r0   : Epidemiological parameter; this is used to calculate
+               the per-contact rate of transmission beta = g*r0/n
+        g    : Recovery rate (gamma)
+        ii   : Initial number of infected nodes
+        tmax : Maximum total length of real time for which the 
+               simulation runs
+        seed : Seed for random.random()
+        nruns: Number of trajectories to simulate in series
     Outputs:
-            t - list of times
-            X - List of many trajectories
+        t   : Times at which observations are made; a list of lists,
+              in which t[i] are the times at which the observations are
+              made in the ith trajectory
+        X   : Numbers of Susceptibles vs. time; a list of dictionaries 
+              {time from t[i]:S}, where X[i] is the ith trajectory and
+              is indexed by the times in t[i]
     """
-    t_traj = [] # lists of trajectories
+    # Lists of observation times
+    t_traj = []
+    # Lists of dictionaries, numbers of Susceptibles
     X_traj = []
-
-    for i in range(N_runs):
-        (t_sim,X_sim,Y_sim) = SIS_GSP(N,R0,g,ii,tmax,seed) # calculate the trajectory
+    # Simulate trajectories in series
+    for i in range(nruns):
+        (t_sim,X_sim,Y_sim) = sis_gsp(n, r0, g, ii, tmax, seed)
+        # Different random seed for each trajectory
         seed += 1
         t_traj.append(t_sim)
         X_traj.append(X_sim)
-    
     return t_traj, X_traj
 
-
-#------------------------------------
+###----------------------------------------------------------------------------
 # Map trajectories onto a grid for easy comparison
-#------------------------------------
+###----------------------------------------------------------------------------
 
-
-def GSP_grid(N, t_traj, X_traj, Y_traj = None, dt = .1):
+def gsp_trajectory_grid(t_traj, X_traj, Y_traj = None, dt = .1):
     """
-    Returns a gridded set of trajectories, coarse-grained in time
-    The "grids" have two axes: 1st axis is the index of the trajectory, 2nd axis is the time
+    Convert the output from any of the three scripts for generating groups 
+    of trajectories (sirs_group(), sis_group(), si_group()) into a data 
+    format that can be easily manipulated and plotted.  This script
+    effectively coarse-grains the trajectories in time, plotting them in
+    parallel on a 'grid,' where x-axis is the trajectory index and the
+    y-axis is time.
     Inputs:
-            t_traj - list of times for a group of trajectories
-            X_traj - list of trajectories for Susceptibles
-            Y_traj - list of trajectories for Infecteds, not a necessary input
-            dt - coarse graining time step
+        t_traj: List of lists of times for a group of trajectories
+        X_traj: Numbers of Susceptibles vs. time; a list of dictionaries 
+                {time from t[i]:S}, where X[i] is the ith trajectory and
+                is indexed by the times in t[i]
+        Y_traj: Numbers of Infecteds vs. time; a list of dictionaries 
+                {time from t[i]:I}, where Y[i] is the ith trajectory and
+                is indexed by the times in t[i]
+        dt    : Time step for coarse graining trajectories in time
     Outputs:
-            t_grid - lists of coarse-grained times for group of trajectories
-            X_grid - lists of trajectories for Susceptibles, coarse-grained in time
-            Y_grid - lists of trajectories for Infecteds, coarse-grained in time, only outputs if Y_traj was input
+        t_grid: List of lists of coarse-grained times for group of 
+                trajectories
+        X_grid: List of lists of trajectories for Susceptibles
+                coarse-grained in time
+        Y_grid: List of lists of trajectories for Infecteds, 
+                coarse-grained in time, only outputs if Y_traj != None 
     """
-    
-    N_runs = len(t_traj)
-    t_grid = N_runs*[[]] # define lists of lists for t, S(t), I(t)
-    S_grid = N_runs*[[]]
-    if Y_traj: I_grid = N_runs*[[]]
+    nruns = len(t_traj)
+    # Define lists of lists for t, S(t), I(t)
+    t_grid = nruns*[[]]
+    S_grid = nruns*[[]]
+    if Y_traj: I_grid = nruns*[[]]
     max_grid = 0
-    
-    for i in range(N_runs):
-        # coarse-grained in time
+    # Coarse-grain each trajectory in time
+    for i in range(nruns):
         t_grid[i] = scipy.arange(0,t_traj[i][-1]+dt,dt)
         len_grid = len(t_grid[i])
-                    
-        pos_grid = np.searchsorted(t_traj[i],t_grid[i]) # need to map the real-time time points onto the coarse-grained time steps
-            
+        # Map the real-time time points onto the coarse-grained time steps
+        pos_grid = np.searchsorted(t_traj[i],t_grid[i]) 
         S_grid[i] = np.zeros(len_grid)
         if Y_traj: I_grid[i] = np.zeros(len_grid)
         for j in range(len_grid):
-            # fill out the trajectories on the grid
-            # one axis of the grid is the different trajectories
-            # one axis of the grid is the coarse-grained time
-            S_grid[i][j] = X_traj[i][t_traj[i][max(pos_grid[j]-1,0)]]/N
-            if Y_traj: I_grid[i][j] = Y_traj[i][t_traj[i][max(pos_grid[j]-1,0)]]/N
-    
+            # Fill out the trajectories on the 'grid'
+            # One axis of the grid is the different trajectories
+            # One axis of the grid is the coarse-grained time
+            S_grid[i][j] = X_traj[i][t_traj[i][max(pos_grid[j]-1,0)]]
+            if Y_traj: I_grid[i][j] = Y_traj[i][t_traj[i][max(pos_grid[j]-1,0)]]
     if not Y_traj: return t_grid, S_grid
     else: return t_grid, S_grid, I_grid
 
-
-#------------------------------------
+###----------------------------------------------------------------------------
 # Functions for extracting statistics from groups trajectories
-#------------------------------------
+###----------------------------------------------------------------------------
     
-
 def avg_profile(t_grid, S_grid, I_grid = None):
     """
     Calculate the average trajectory of a group of trajectories
