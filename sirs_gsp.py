@@ -353,7 +353,7 @@ def gsp_trajectory_grid(t_traj, X_traj, Y_traj = None, dt = .1):
             # One axis of the grid is the different trajectories
             # One axis of the grid is the coarse-grained time
             S_grid[i][j] = X_traj[i][t_traj[i][max(pos_grid[j]-1,0)]]
-            if Y_traj: I_grid[i][j] = Y_traj[i][t_traj[i][max(pos_grid[j]-1,0)]]
+            if Y_traj: I_grid[i][j]= Y_traj[i][t_traj[i][max(pos_grid[j]-1,0)]]
     if not Y_traj: return t_grid, S_grid
     else: return t_grid, S_grid, I_grid
 
