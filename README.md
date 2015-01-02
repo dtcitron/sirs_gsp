@@ -21,4 +21,7 @@ the SIRS simulations
 sirs_gsp_demo.ipynb - iPython notebook demonstrating the use of this
 package
 
+sirs_gsp.jl - Julia version of sirs_gsp.py, which includes a multi-
+threaded version of the code for best performance.
+
 README.md - what you're reading right now

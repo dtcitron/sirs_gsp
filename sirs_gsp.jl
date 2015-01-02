@@ -503,6 +503,8 @@ end
 ###----------------------------------------------------------------------------
 
 ### Example usage
+### This is how you need to open Julia, n=number of cores, for multithreading
+# julia -p n
 ### This is how you need to call before using, otherwise horrible errors
 # @everywhere include("sirs_gsp.jl")
 # using GSP_par
