@@ -517,22 +517,22 @@ def absorb_diagram(data):
                Fraction of absorbed trajectories at each
                parameter combination: {[alpha, R0] : fraction absorbed}
     """
-    r0s, alphas = data_params(data)
+    alphas, r0s = data_params(data)
     absorb_dict = {}
     for r0 in r0s:
         for alpha in alphas:
             absorb = 0
-            ys = data[r0, alpha][-1]
+            ys = data[alpha, r0][-1]
             for y in ys:
                 if y[-1] == 0: absorb += 1
-            absorb_dict[r0, alpha] = 1.*absorb/len(ys)
+            absorb_dict[alpha, r0] = 1.*absorb/len(ys)
     return absorb_dict
 
 def colormap(data, alphas, R0s,
              p = True, logx = True, ret = False):
     """
     Use pcolormesh from matplotlib to create a visualization of the 
-    ISIRS hase diagram in the form of a heat map.
+    SIRS phase diagram in the form of a heat map.
     Input:  
         data  : Dictionary of the form {(alpha, R0}:value}, where
                 the value represents <I*>, <S*>, etc.  This dictionary

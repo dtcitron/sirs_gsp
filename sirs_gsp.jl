@@ -1,7 +1,11 @@
 using Gadfly
 
-
 module GSP
+
+using PyCall
+@pyimport cPickle as pickle
+@pyimport numpy as np
+using PyPlot
 
 ### Example usage ###
 # t, X, Y = sirs_group(1000, 1.1, 1., 10., 50, 100., 0, 100);
@@ -9,11 +13,11 @@ module GSP
 # tavg, Savg, Svar, Iavg, Ivar = grid_avg(tg, Xg, Yg);
 
 # Things to work on
-# 1. Creating whole messes of data
-# 2. Visualization, creating heat maps with gadfly, if possible
+# *1. Creating whole messes of data - in both series and in parallel
+# *2. Visualization, creating heat maps with gadfly, if possible
 #   or finally figuring out pyplot
 # 3. Benchmark!
-# 4. Using map/reduce to parallelize the simulations
+# *4. Using map/reduce to parallelize the simulations
 
 ###----------------------------------------------------------------------------
 # Functions for calculating single trajectories
@@ -490,11 +494,151 @@ function grid_med(t_grid, S_grid, I_grid = None)
 end
 
 ###----------------------------------------------------------------------------
+#  Functions for phase diagram for a group of trajectories
+###----------------------------------------------------------------------------
+
+#    Produce a group of SIRS trajectories for each given parameter 
+#    combination.  Thus, this produces a phase diagram that can
+#    be used to measure the persistence of the endemic phase,
+#    statistics of trajectories, and more.
+#    Input:
+#        n      : Population size
+#        r0s    : Array/list of R0 values in parameter space
+#        alphas : Array/list of alpha values in parameter space
+#        g      : Recovery rate (gamma)
+#        maxtime: Maximum total length of real time for which the 
+#                 simulation runs
+#        dt     : Time step
+#        seed   : Initial seed for random.random()
+#        nruns  : Number of trajectories to simulate in series
+#                 for each set of parameters
+#        fname  : If filename != None, write the output out to the
+#                 named location.  Else return the output.
+#    Output:
+#        data   : This is a dictionary containing the full coarse-
+#                 grained trajectory data for a group of trajectories
+#                 calculated for each parameter combination.
+#                 {[alpha, r0] : coarse-grained trajectory group}
+#                 If fname != None, write out to file at given location;
+#                 otherwise, return data.
+#
+function sirs_diagram(n, r0s, alphas, g, maxtime, dt, nruns, 
+                 fname = "SIRS_gsp_diagram_N.dat")
+    data = Dict()
+    for r0 in r0s
+        for alpha in alphas
+            #println(alpha, " ", r0)
+            t, x, y = sirs_group(n, r0, g, alpha, div(n,10), maxtime, 0 , nruns);
+            data[alpha, r0] = gsp_trajectory_grid(t, x, y, dt=dt);
+        end
+    end
+    if fname != None
+        #println("writing out now")
+        f = open(fname, "w");
+        pickle.dump(PyDict(data), f);
+        #println("saving")
+        close(f)
+    else
+        data
+    end
+end
+
+#    Create a phase diagram of the fraction of extinct (absorbed)
+#    trajectories.
+#    Inputs:
+#        data : Output from sirs_diagram() above
+#    Outputs:
+#        absorb_dict : 
+#               Fraction of absorbed trajectories at each
+#               parameter combination: {[alpha, R0] : fraction absorbed}
+#
+function absorb_diagram(data)
+    alphas, r0s = data_params(data)
+    absorb_dict = Dict()
+    for r0 in r0s
+        for alpha in alphas
+            absorb = 0
+            ys = data[alpha, r0][end]
+            for y in ys
+                if y[end] == 0
+                    absorb += 1
+                end
+            end
+            absorb_dict[alpha, r0] = 1.*absorb/length(ys)
+        end
+    end
+    absorb_dict
+end
+
+#    Use pcolormesh from matplotlib to create a visualization of the 
+#    SIRS phase diagram in the form of a heat map.
+#    Input:  
+#        data  : Dictionary of the form {(alpha, R0}:value}, where
+#                the value represents <I*>, <S*>, etc.  This dictionary
+#                is produced by avg_idata(), fluct(), or frac_fluct()
+#        alphas: Phase diagram parameters on x-axis; rho/gamma
+#        R0s   : Phase diagram parameters on y-axis; beta<k>/gamma
+#                These can be obtained with data_params()
+#        p     : Create a plot of the data if p==True
+#        logx  : Plot with a logarithmic x-axis (alphas logarithmic)
+#        ret   : If ret==True, return the values used to create the
+#                heat map, so that they may be manipulated in the 
+#                interpreter or elsewhere; defaults to False
+#    Output:
+#        Creates a matplotlib heatmap if p==True
+#        (X, Y, C): These are three arrays that pcolormesh() takes as
+#                arguments.  These are returned only if ret==True
+#
+function colormap(data, alphas, r0s,
+                  p = true, logx = true, ret = false)
+    X, Y = np.meshgrid(alphas, r0s);
+    C = Float64[data[alpha, r0] for alpha in alphas, r0 in r0s];
+    if p
+        plt.figure()
+        plt.pcolormesh(X, Y, C)
+        plt.xlabel("rho/gamma")
+        if logx
+            plt.semilogx()
+        end
+        plt.ylabel("R_0")
+        plt.colorbar()
+        plt.show()
+    end
+    if ret
+        X, Y, C
+    end
+end
+
+#    Given the output from one of the scripts for generating a phase 
+#    diagram, return two lists of all parameters alphas and R0s.  The 
+#    input is a single one of the outputs (such as idata or mdata) with
+#    the form {(alpha, R0):data}
+#    Inputs:
+#        idata : dictionary from output of sirs_diagram()
+#    Outputs:
+#        alphas: array vector of alpha=rho/gamma
+#        R0S   : array vector of R0<k>/gamma
+#
+function data_params(data)
+    alphas = Float64[]
+    R0s = Float64[]
+    for k in keys(data)
+        push!(alphas, k[1]);
+        push!(R0s, k[2]);
+    end
+    alphas = sort([i for i in Set(alphas)]);
+    R0s = sort([i for i in Set(R0s)]);
+    return alphas, R0s
+end
+
+
+###----------------------------------------------------------------------------
 # End GSP module
 ###----------------------------------------------------------------------------
 export si_gsp, sis_gsp, sirs_gsp
 export si_group, sis_group, sirs_group
-export gsp_trajectory_grid, grid_avg
+export gsp_trajectory_grid, grid_avg, sirs_diagram
+export data_params, absorb_diagram, colormap
 end
 
 
@@ -529,6 +673,35 @@ module GSP_par
 
 using GSP
 
+using PyCall
+@pyimport cPickle as pickle
+@pyimport numpy as np
+
+#    Generate a group of trajectories using the Susceptible-Infected-
+#    Recovered-Susceptible (SIRS) model of disease dynamics.  Each 
+#    trajectory is calculated in series using sirs_gsp().
+#    Inputs:
+#        n    : Population size
+#        r0   : Epidemiological parameter; this is used to calculate
+#               the per-contact rate of transmission beta = g*r0/n
+#        g    : Recovery rate (gamma)
+#        rho  : Waning immunity rate (rho)
+#        ii   : Initial number of infected nodes
+#        tmax : Maximum total length of real time for which the 
+#               simulation runs
+#        seed : Seed for random.random()
+#        nruns: Number of trajectories to simulate in series
+#    Outputs:
+#        t   : Times at which observations are made; a list of lists,
+#              in which t[i] are the times at which the observations are
+#              made in the ith trajectory
+#        X   : Numbers of Susceptibles vs. time; a list of dictionaries 
+#              {time from t[i]:S}, where X[i] is the ith trajectory and
+#              is indexed by the times in t[i]
+#        Y   : Numbers of Infecteds vs. time; a list of dictionaries 
+#              {time from t[i]:I}, where Y[i] is the ith trajectory and
+#              is indexed by the times in t[i]
+#
 function sirs_group_par(n::Int64, r0, g, rho,
                     ii::Int64, tmax, seed::Int64 = 0, nruns::Int64 = 10)
     # Lists of observation times
@@ -555,7 +728,59 @@ function sirs_group_par(n::Int64, r0, g, rho,
 end
 
 ###----------------------------------------------------------------------------
+#  Functions for phase diagram for a group of trajectories
+###----------------------------------------------------------------------------
+
+#    Produce a group of SIRS trajectories for each given parameter 
+#    combination.  Thus, this produces a phase diagram that can
+#    be used to measure the persistence of the endemic phase,
+#    statistics of trajectories, and more.
+#    Input:
+#        n      : Population size
+#        r0s    : Array/list of R0 values in parameter space
+#        alphas : Array/list of alpha values in parameter space
+#        g      : Recovery rate (gamma)
+#        maxtime: Maximum total length of real time for which the 
+#                 simulation runs
+#        dt     : Time step
+#        seed   : Initial seed for random.random()
+#        nruns  : Number of trajectories to simulate in series
+#                 for each set of parameters
+#        fname  : If filename != None, write the output out to the
+#                 named location.  Else return the output.
+#    Output:
+#        data   : This is a dictionary containing the full coarse-
+#                 grained trajectory data for a group of trajectories
+#                 calculated for each parameter combination.
+#                 {[alpha, r0] : coarse-grained trajectory group}
+#                 If fname != None, write out to file at given location;
+#                 otherwise, return data.
+#
+function sirs_diagram(n, r0s, alphas, g, maxtime, dt, nruns, 
+                 fname = "SIRS_gsp_diagram_N.dat")
+    data = Dict()
+    for r0 in r0s
+        for alpha in alphas
+            #println(alpha, " ", r0)
+            t, x, y = sirs_group_par(n, r0, g, alpha, div(n,10), maxtime, 0 , nruns);
+            data[alpha, r0] = gsp_trajectory_grid(t, x, y, dt=dt);
+        end
+    end
+    if fname != None
+        #println("writing out now")
+        f = open(fname, "w");
+        pickle.dump(PyDict(data), f);
+        #println("saving")
+        close(f)
+    else
+        data
+    end
+end
+
+
+
+###----------------------------------------------------------------------------
 # End module
 ###----------------------------------------------------------------------------
-export sirs_group_par
+export sirs_group_par, sirs_diagram
 end
