@@ -527,6 +527,40 @@ def absorb_diagram(data):
                 if y[-1] == 0: absorb += 1
             absorb_dict[alpha, r0] = 1.*absorb/len(ys)
     return absorb_dict
+    
+def snr_diagram(data, t_index = None):
+    """
+    Create a phase diagram of the signal to noise ratio of non-extinct
+    (still going) trajectories.  Specifically, find the SNR of the 
+    quasi-stationary distribution of the number of infecteds at a given
+    time index
+    Inputs:
+        data : Output from sirs_diagram() above
+        t_index: Time at which we observe the QSD.  Defaults to None
+    Outputs:
+        absorb_dict : 
+               Fraction of absorbed trajectories at each
+               parameter combination: {[alpha, R0] : fraction absorbed}
+    """
+    alphas, r0s = data_params(data)
+    snr_dict = {}
+    for r0 in r0s:
+        for alpha in alphas:
+            # find all infecteds at t_index
+            if t_index == None:
+                infecteds = np.array([y[-1] for y in data[alpha, r0][-1]])
+            else:
+                infecteds = np.array([y[t_index] for y in data[alpha, r0][-1]\
+                            if t_index < len(y)])
+            # condition on the trajectory not dying out
+            qsdi = infecteds[np.where(infecteds > 0)]
+            if len(qsdi)>1:
+                m = np.mean(qsdi)
+                s = np.std(qsdi)
+                snr_dict[alpha, r0] = m/s
+            else:
+                snr_dict[alpha, r0] = 0
+    return snr_dict
 
 def colormap(data, alphas, R0s,
              p = True, logx = True, ret = False):

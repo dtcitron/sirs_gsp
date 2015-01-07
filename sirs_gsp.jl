@@ -543,6 +543,44 @@ function sirs_diagram(n, r0s, alphas, g, maxtime, dt, nruns,
     end
 end
 
+#    Create a phase diagram of the signal to noise ratio of non-extinct
+#    (still going) trajectories.  Specifically, find the SNR of the 
+#    quasi-stationary distribution of the number of infecteds at a given
+#    time index
+#    Inputs:
+#        data : Output from sirs_diagram() above
+#        t_index: Time at which we observe the QSD.  Defaults to last time.
+#    Outputs:
+#        absorb_dict : 
+#               Fraction of absorbed trajectories at each
+#               parameter combination: {[alpha, R0] : fraction absorbed}
+#
+function snr_diagram(data, t_index = None)
+    alphas, r0s = data_params(data)
+    snr_dict = Dict()
+    for r0 in r0s
+        for alpha in alphas
+            # find all infecteds at t_index
+            if t_index == None
+                infecteds = Float64[y[end] for y in data[alpha, r0][end]];
+            else
+                infecteds = Float64[y[t_index] for y in 
+                            filter(y -> length(y) > t_index, data[alpha, r0][end])];
+            end
+            # condition on the trajectory not dying out
+            qsdi = infecteds[find(r -> r > 0, infecteds)];
+            if length(qsdi) > 1
+                m = mean(qsdi)
+                s = std(qsdi, corrected = false)
+                snr_dict[alpha, r0] = 1.*m/s
+            else
+                snr_dict[alpha, r0] = 0
+            end
+        end
+    end
+    snr_dict
+end
+
 #    Create a phase diagram of the fraction of extinct (absorbed)
 #    trajectories.
 #    Inputs:
@@ -592,7 +630,7 @@ end
 function colormap(data, alphas, r0s,
                   p = true, logx = true, ret = false)
     X, Y = np.meshgrid(alphas, r0s);
-    C = Float64[data[alpha, r0] for alpha in alphas, r0 in r0s];
+    C = Float64[data[alpha, r0] for r0 in r0s, alpha in alphas];
     if p
         plt.figure()
         plt.pcolormesh(X, Y, C)
@@ -638,7 +676,7 @@ end
 export si_gsp, sis_gsp, sirs_gsp
 export si_group, sis_group, sirs_group
 export gsp_trajectory_grid, grid_avg, sirs_diagram
-export data_params, absorb_diagram, colormap
+export data_params, absorb_diagram, snr_diagram, colormap
 end
 
 
