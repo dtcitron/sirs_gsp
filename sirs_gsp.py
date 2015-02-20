@@ -21,7 +21,8 @@
 #     this is not yet optimized.
 #  2. Is there a simple way to use map() to calculate groups of 
 #     trajectories in parallel, rather than in series?
-#  3. Plotting the phase diagrams?
+#  3. There is a smarter way of drawing from the exponential distribution? 
+#     ziggurat method: internal to Julia and Python
 
 import numpy as np
 import scipy
@@ -484,7 +485,7 @@ def sirs_diagram(n, r0s, alphas, g, maxtime, dt, nruns,
         seed   : Initial seed for random.random()
         nruns  : Number of trajectories to simulate in series
                  for each set of parameters
-        fname  : If filename != None, write the output out to the
+        fname  : If fname != None, write the output out to the
                  named location.  Else return the output.
     Output:
         data   : This is a dictionary containing the full coarse-
@@ -500,7 +501,7 @@ def sirs_diagram(n, r0s, alphas, g, maxtime, dt, nruns,
             t, x, y = sirs_group(n, r0, g, alpha, n//10, maxtime, 0 , nruns)
             data[alpha, r0] = gsp_trajectory_grid(t, x, y, dt)
     if fname != None:
-        f = open(filename, 'w')
+        f = open(fname, 'w')
         pickle.dump(data, f)
         f.close()
     else:
@@ -630,7 +631,7 @@ def sirs_diagram_endemic(n, r0s, alphas, g, maxtime, seed, nruns,
         seed   : Initial seed for random.random()
         nruns  : Number of trajectories to simulate in series
                  for each set of parameters
-        fname  : If filename != None, write the output out to the
+        fname  : If fname != None, write the output out to the
                  named location.  Else return the output.
     Output:
         absorb_data : This is a dictionary containing the fraction of
@@ -650,7 +651,7 @@ def sirs_diagram_endemic(n, r0s, alphas, g, maxtime, seed, nruns,
                 if Y[t[-1]] > 0:
                     absorb_data[alpha, r0] += 1./nruns
     if fname != None:
-        f = open(filename, 'w')
+        f = open(fname, 'w')
         pickle.dump(absorb_data, f)
         f.close()
     else:
