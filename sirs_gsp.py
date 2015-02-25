@@ -29,7 +29,7 @@ import scipy
 import random
 import cPickle as pickle
 from collections import defaultdict
-import scipy.optimize as opt
+#import scipy.optimize as opt
 import matplotlib.pyplot as plt
 
 # First calculate a group of trajectories:
