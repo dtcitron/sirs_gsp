@@ -467,7 +467,7 @@ def grid_med(t_grid, S_grid, I_grid = None):
 #  Functions for phase diagram for a group of trajectories
 ###----------------------------------------------------------------------------
 
-def sirs_diagram(n, r0s, alphas, g, maxtime, dt, nruns, 
+def sirs_diagram(n, r0s, alphas, g, maxtime, dt, seed, nruns, 
                  fname = 'SIRS_gsp_diagram_N.dat'):
     """
     Produce a group of SIRS trajectories for each given parameter 
@@ -498,8 +498,10 @@ def sirs_diagram(n, r0s, alphas, g, maxtime, dt, nruns,
     data = {}
     for r0 in r0s:
         for alpha in alphas:
-            t, x, y = sirs_group(n, r0, g, alpha, n//10, maxtime, 0 , nruns)
+            np.random.seed(seed)
+            t, x, y = sirs_group(n, r0, g, alpha, n//10, maxtime, seed , nruns)
             data[alpha, r0] = gsp_trajectory_grid(t, x, y, dt)
+            seed = np.random.randint(1000000000)
     if fname != None:
         f = open(fname, 'w')
         pickle.dump(data, f)
