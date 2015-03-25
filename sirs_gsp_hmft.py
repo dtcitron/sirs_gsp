@@ -179,7 +179,7 @@ def hmft_sirs_diagram(pk, n, r0s, alphas, g, maxtime, dt, seed, nruns,
             data[alpha, r0] = hmft_trajectory_grid(t, x, y, dt)
             seed = np.random.randint(0, sys.maxint)
     if fname != None:
-        f = open(rname, 'w')
+        f = open(fname, 'w')
         pickle.dump(data, f)
         f.close()
     else:
