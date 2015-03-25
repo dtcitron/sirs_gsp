@@ -26,7 +26,7 @@
 
 import numpy as np
 import scipy
-import random
+import random, sys
 import cPickle as pickle
 from collections import defaultdict
 #import scipy.optimize as opt
@@ -169,13 +169,13 @@ def sirs_gsp(n, r0, g = 1, rho = 1, ii = 1, tmax = 10, seed  = 0, debug = False)
         rate_IR = g*Y[t[-1]]
         rate_RS = g*rho*(n - X[t[-1]] - Y[t[-1]])
         rate_tot = rate_SI + rate_IR + rate_RS
-        if debug: print rate_tot, rate_SI, rate_IR, rate_RS, \
-                        g, rho, N - X[t[-1]] - Y[t[-1]]
         # Calculate the time until the next event
         dt = -np.log(random.random())/rate_tot
+        r = random.random()
+        if debug: print rate_tot, rate_SI, rate_IR, rate_RS, \
+            r, dt, X[t[-1]], Y[t[-1]]
         t.append(t[-1]+dt)
         # Choose which event happens next
-        r = random.random()
         if (r <= rate_SI/rate_tot):
             X[t[-1]] = X[t[-2]]-1
             Y[t[-1]] = Y[t[-2]]+1
@@ -228,7 +228,7 @@ def sirs_group(n, r0, g = 1, rho = 1, ii = 1, tmax = 10, seed  = 0, nruns = 10):
     for i in range(nruns):
         (t_sim,X_sim,Y_sim) = sirs_gsp(n, r0, g, rho, ii, tmax, seed)
         # Different random seed for each trajectory
-        seed += 1
+        seed = np.random.randint(0, sys.maxint)
         t_traj.append(t_sim)
         X_traj.append(X_sim)
         Y_traj.append(Y_sim)
@@ -265,7 +265,7 @@ def si_group(n, r0, ii = 1, tmax = 10, seed  = 0, nruns = 10):
     for i in range(nruns):
         (t_sim,X_sim,Y_sim) = si_gsp(n, r0, ii, tmax, seed)
         # Different random seed for each trajectory
-        seed += 1
+        seed = np.random.randint(0, sys.maxint)
         t_traj.append(t_sim)
         X_traj.append(X_sim)
     return t_traj, X_traj
@@ -301,7 +301,7 @@ def sis_group(n, r0, g = 1, ii = 1, tmax = 10, seed  = 0, nruns = 10):
     for i in range(nruns):
         (t_sim,X_sim,Y_sim) = sis_gsp(n, r0, g, ii, tmax, seed)
         # Different random seed for each trajectory
-        seed += 1
+        seed = np.random.randint(0, sys.maxint)
         t_traj.append(t_sim)
         X_traj.append(X_sim)
     return t_traj, X_traj
@@ -498,10 +498,9 @@ def sirs_diagram(n, r0s, alphas, g, maxtime, dt, seed, nruns,
     data = {}
     for r0 in r0s:
         for alpha in alphas:
-            np.random.seed(seed)
-            t, x, y = sirs_group(n, r0, g, alpha, n//10, maxtime, seed , nruns)
+            t, x, y = sirs_group(n, r0, g, alpha, n//10, maxtime, seed, nruns)
             data[alpha, r0] = gsp_trajectory_grid(t, x, y, dt)
-            seed = np.random.randint(1000000000)
+            seed = np.random.randint(0, sys.maxint)
     if fname != None:
         f = open(fname, 'w')
         pickle.dump(data, f)
@@ -648,7 +647,7 @@ def sirs_diagram_endemic(n, r0s, alphas, g, maxtime, seed, nruns,
             absorb_data[alpha, r0] = 0
             for i in range(nruns):
                 t, X, Y = sirs_gsp(n, r0, g, alpha, n//10, maxtime, seed)
-                seed += 1
+                seed = np.random.randint(0, sys.maxint)
                 # check to see if the disease has died out...
                 if Y[t[-1]] > 0:
                     absorb_data[alpha, r0] += 1./nruns
