@@ -9,8 +9,8 @@ from sirs_gsp import *
 
 
 
-def sirs_hmft(pk, n, r0, g = 1, rho = 1, ii = 1, tmax = 10, \
-        seed  = 0, debug = False):
+def sirs_hmft(pk, n, r0, g = 1, rho = 1, init_i = 1, init_s = None,\
+             tmax = 10, seed  = 0, debug = False):
     """
     Generate a single trajectory of a Susceptible-Infected-
     Recovered-Susceptible (SIRS) model of disease dynamics.  Exit out 
@@ -22,7 +22,9 @@ def sirs_hmft(pk, n, r0, g = 1, rho = 1, ii = 1, tmax = 10, \
                the per-contact rate of transmission beta = g*r0/n
         g    : Recovery rate (gamma)
         rho  : Waning immunity rate (rho)
-        ii   : Initial number of infected nodes
+        init_i   : Initial number of infected nodes
+        init_s   : Initial number of susceptible nodes, default None
+                   If None, X = N - init_i
         tmax : Maximum total length of real time for which the 
                simulation runs
         seed : Seed for random.random
@@ -38,8 +40,11 @@ def sirs_hmft(pk, n, r0, g = 1, rho = 1, ii = 1, tmax = 10, \
     pks = np.array([pk[k] for k in ks])
     kmean = np.dot(ks, pks)
     N = np.array(n*pks, dtype = int)
-    Y = np.array(ii*pks, dtype = int)
-    X = N - Y
+    Y = np.array(init_i*pks, dtype = int)
+    if init_s != None:
+        X = np.array(init_s*pks, dtype = int)
+    else:
+        X = N - Y
     t = [0.]
     X = {0.:X}
     Y = {0.:Y}
@@ -76,8 +81,8 @@ def sirs_hmft(pk, n, r0, g = 1, rho = 1, ii = 1, tmax = 10, \
             X[t[-1]][index//3] +=1
     return (t,X,Y)
 
-def sirs_hmft_group(pk, n, r0, g = 1, rho = 1, ii = 1, tmax = 10, \
-        seed  = 0, nruns = 10):
+def sirs_hmft_group(pk, n, r0, g = 1, rho = 1, init_i = 1, \
+                    init_s = None, tmax = 10, seed  = 0, nruns = 10):
     """
     Generate a group of trajectories using the Susceptible-Infected-
     Recovered-Susceptible (SIRS) model of disease dynamics.  Each 
@@ -89,7 +94,8 @@ def sirs_hmft_group(pk, n, r0, g = 1, rho = 1, ii = 1, tmax = 10, \
                the per-contact rate of transmission beta = g*r0/n
         g    : Recovery rate (gamma)
         rho  : Waning immunity rate (rho)
-        ii   : Initial number of infected nodes
+        init_i   : Initial number of infected nodes
+        init_s   : Initial number of susceptible nodes, default None
         tmax : Maximum total length of real time for which the 
                simulation runs
         seed : Seed for random.random()
@@ -109,7 +115,7 @@ def sirs_hmft_group(pk, n, r0, g = 1, rho = 1, ii = 1, tmax = 10, \
     X_group = []
     Y_group = []
     for i in range(nruns):
-        (t, X, Y) = sirs_hmft(pk, n, r0, g, rho, ii, tmax, seed)    
+        (t, X, Y) = sirs_hmft(pk, n, r0, g, rho, init_i, init_s, tmax, seed)    
         t, X, Y = ex_traj(t, X, Y)
         t_group.append(t)
         X_group.append(X)
@@ -142,7 +148,7 @@ def hmft_trajectory_grid(t_group, X_group, Y_group, dt = .1):
 ###----------------------------------------------------------------------------
     
 def hmft_sirs_diagram(pk, n, r0s, alphas, g, maxtime, dt, seed, nruns,
-                      fname = 'SIRS_hmft_gsp_diagram.dat'):
+                      fname = 'SIRS_hmft_gsp_diagram.dat', mft = False):
     """
     Produce a group of SIRS trajectories for each given parameter
     combination using the annealed HMFT version of the SIRS Gillespie 
@@ -163,6 +169,7 @@ def hmft_sirs_diagram(pk, n, r0s, alphas, g, maxtime, dt, seed, nruns,
                  for each set of parameters
         fname  : If fname != None, write the output out to the
                  named location.  Else return the output.
+        mft    : If True, determine the initial number 
     Outputs:
         data   : This is a dictionary containing the full coarse-
                  grained trajectory data for a group of trajectories
@@ -174,8 +181,14 @@ def hmft_sirs_diagram(pk, n, r0s, alphas, g, maxtime, dt, seed, nruns,
     data = {}
     for r0 in r0s: 
         for alpha in alphas:
+            if mft:
+                init_s = int(1.*n/r0)
+                init_i = max(int(1.*n*alpha/(1. + alpha)*(1 - 1./r0)), n//10)
+            else:
+                init_s = None
+                init_i = n//10
             t, x, y = sirs_hmft_group(pk, n, r0, g, alpha, \
-                        n//10, maxtime, seed, nruns)
+                        init_i, init_s, maxtime, seed, nruns)
             data[alpha, r0] = hmft_trajectory_grid(t, x, y, dt)
             seed = np.random.randint(0, sys.maxint)
     if fname != None:
@@ -234,7 +247,7 @@ def hmft_stats(t_grid, S_grid, I_grid, k = None):
     x_std = np.array([np.std(x_qsd[i]) for i in range(max_grid)])
     y_mean = np.array([np.mean(y_qsd[i]) for i in range(max_grid)])
     y_std = np.array([np.std(y_qsd[i]) for i in range(max_grid)])
-    return x_mean, x_std, y_mean, y_std
+    return t, x_mean, x_std, y_mean, y_std
 
 def ex_traj(t, X, Y):
     """
