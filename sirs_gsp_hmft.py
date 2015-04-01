@@ -4,7 +4,7 @@ import random
 import cPickle as pickle
 from collections import defaultdict
 #import scipy.optimize as opt
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from sirs_gsp import *
 
 
