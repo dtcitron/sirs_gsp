@@ -3,6 +3,7 @@ import scipy
 import random
 import cPickle as pickle
 from collections import defaultdict
+import sys
 #import scipy.optimize as opt
 #import matplotlib.pyplot as plt
 #from sirs_gsp import *
