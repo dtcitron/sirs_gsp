@@ -183,7 +183,7 @@ def hmft_sirs_diagram(pk, n, r0s, alphas, g, maxtime, dt, seed, nruns,
     for r0 in r0s: 
         for alpha in alphas:
             if mft:
-                init_s = int(1.*n/r0)
+                init_s = min(int(1.*n/r0), 9*n//10)
                 init_i = max(int(1.*n*alpha/(1. + alpha)*(1 - 1./r0)), n//10)
             else:
                 init_s = None
