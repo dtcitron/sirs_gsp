@@ -223,18 +223,18 @@ def hmft_qsd(t_grid, S_grid, I_grid, k = None):
     max_grid = np.max([len(i) for i in t_grid])
     ts = np.linspace(0, max_grid-1, max_grid)*dt;
     if k == None:
-        S_qsd = np.array([[np.sum(S_grid[i], 0)[j] \
-                for i in range(nruns) if j < len(S_grid[i][0])] \
+        S_qsd = np.array([np.array([S_grid[i][:,j] \
+                for i in range(nruns) if j < len(S_grid[i][0])]) \
                 for j in range(max_grid)])
-        I_qsd = np.array([[np.sum(I_grid[i], 0)[j] \
-                for i in range(nruns) if j < len(I_grid[i][0])] \
+        I_qsd = np.array([np.array([I_grid[i][:,j] \
+                for i in range(nruns) if j < len(I_grid[i][0])]) \
                 for j in range(max_grid)])
     else:
-        S_qsd = np.array([[S_grid[i][:,j] \
-                for i in range(nruns) if j < len(S_grid[i][0])] \
+        S_qsd = np.array([np.array([S_grid[i][k,j] \
+                for i in range(nruns) if j < len(S_grid[i][0])]) \
                 for j in range(max_grid)])
-        I_qsd = np.array([[I_grid[i][:,j] \
-                for i in range(nruns) if j < len(I_grid[i][0])] \
+        I_qsd = np.array([np.array([I_grid[i][k,j] \
+                for i in range(nruns) if j < len(I_grid[i][0])]) \
                 for j in range(max_grid)])
     return ts, S_qsd, I_qsd
     
