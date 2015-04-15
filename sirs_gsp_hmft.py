@@ -216,7 +216,7 @@ def hmft_ensemble(t_grid, S_grid, I_grid, k = None):
 
 def hmft_qsd(t_grid, S_grid, I_grid, k = None):
     # Return the QSD for all trajectories
-    # if k == None, return QSDs of total number of S and I
+    # if k == None, return QSDs for all degree classes
     # if K == an integer, return QSDs trajectories for kth degree class
     dt = t_grid[0][1]-t_grid[0][0]
     nruns = len(t_grid)
@@ -230,24 +230,24 @@ def hmft_qsd(t_grid, S_grid, I_grid, k = None):
                 for i in range(nruns) if j < len(I_grid[i][0])] \
                 for j in range(max_grid)])
     else:
-        S_qsd = np.array([[S_grid[i][k][j] \
+        S_qsd = np.array([[S_grid[i][:,j] \
                 for i in range(nruns) if j < len(S_grid[i][0])] \
                 for j in range(max_grid)])
-        I_qsd = np.array([[I_grid[i][k][j] \
+        I_qsd = np.array([[I_grid[i][:,j] \
                 for i in range(nruns) if j < len(I_grid[i][0])] \
                 for j in range(max_grid)])
     return ts, S_qsd, I_qsd
     
 def hmft_stats(t_grid, S_grid, I_grid, k = None):
     # Return statistics (mean and standard deviations) for QSD
-    # if k == None, return stats on QSD
+    # if k == None, return stats on QSD for all degree classes
     # if k != None, return stats of QSD of kth degree class
     max_grid = np.max([len(i) for i in t_grid])
     t, x_qsd, y_qsd = hmft_qsd(t_grid, S_grid, I_grid, k)
-    x_mean = np.array([np.mean(x_qsd[i]) for i in range(max_grid)])
-    x_std = np.array([np.std(x_qsd[i]) for i in range(max_grid)])
-    y_mean = np.array([np.mean(y_qsd[i]) for i in range(max_grid)])
-    y_std = np.array([np.std(y_qsd[i]) for i in range(max_grid)])
+    x_mean = np.array([np.mean(x_qsd[i],0) for i in range(max_grid)])
+    x_std = np.array([np.std(x_qsd[i],0) for i in range(max_grid)])
+    y_mean = np.array([np.mean(y_qsd[i],0) for i in range(max_grid)])
+    y_std = np.array([np.std(y_qsd[i],0) for i in range(max_grid)])
     return t, x_mean, x_std, y_mean, y_std
 
 def ex_traj(t, X, Y):
